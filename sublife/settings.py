@@ -56,8 +56,8 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
         "NAME": "sublife_db",
-        "USER": "root",
-        "PASSWORD": "root123",
+        "USER": "sublife",
+        "PASSWORD": "sublife123",
         "HOST": "127.0.0.1",
         "PORT": "3306",
         "OPTIONS": {
