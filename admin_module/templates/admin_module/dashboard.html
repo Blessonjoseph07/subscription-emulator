@@ -1,0 +1,77 @@
+{% extends "user_module/base.html" %}
+
+{% block title %}Admin Dashboard | SubLife{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <h2>Admin Dashboard</h2>
+      <p>Manage all users and subscriptions on the platform.</p>
+    </div>
+
+    <div class="panel reveal" style="margin-bottom: 2rem;">
+      <div class="panel-heading">
+        <h2>Registered Users</h2>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <tr>
+            <th>Username</th>
+            <th>Joined</th>
+            <th>Action</th>
+          </tr>
+          {% for u in users %}
+          <tr>
+            <td><strong>{{ u.username }}</strong> {% if u.is_superuser %}<span class="badge yellow">Admin</span>{% endif %}</td>
+            <td class="mono">{{ u.date_joined|date:"M d, Y" }}</td>
+            <td>
+              {% if u != request.user %}
+              <form method="post" action="{% url 'admin_delete_user' u.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn small ghost" type="submit" style="color: var(--red); border-color: var(--red);">Delete User</button>
+              </form>
+              {% else %}
+                <span class="muted" style="font-size: 0.85rem;">Active</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+
+    <div class="panel reveal">
+      <div class="panel-heading">
+        <h2>Global Subscriptions</h2>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <tr>
+            <th>Subscription</th>
+            <th>Owner</th>
+            <th>Cost</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+          {% for sub in subscriptions %}
+          <tr>
+            <td><strong>{{ sub.name }}</strong></td>
+            <td>{{ sub.user.username }}</td>
+            <td class="mono">₹{{ sub.monthly_cost }}</td>
+            <td><span class="badge">{{ sub.get_status_display }}</span></td>
+            <td>
+              <form method="post" action="{% url 'admin_delete_subscription' sub.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn small ghost" type="submit" style="color: var(--red); border-color: var(--red);">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "user_module/base.html" %}
+
+{% block title %}System Dashboard | SubLife{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <h2>System Dashboard</h2>
+      <p>Global health metrics and event logs.</p>
+    </div>
+
+    <div class="stats-grid reveal" style="margin-bottom: 2rem;">
+      <article class="stat-card green">
+        <strong class="stat-value">{{ total_subs }}</strong>
+        <span>Total Subs in DB</span>
+      </article>
+      <article class="stat-card yellow">
+        <strong class="stat-value">{{ active_subs }}</strong>
+        <span>Active Subs</span>
+      </article>
+      <article class="stat-card red">
+        <strong class="stat-value">{{ paused_subs }}</strong>
+        <span>Paused Subs</span>
+      </article>
+      <article class="stat-card green">
+        <strong class="stat-value">₹{{ total_monthly_value }}</strong>
+        <span>Total Value Tracked</span>
+      </article>
+    </div>
+
+    <div class="panel reveal">
+      <div class="panel-heading">
+        <h2>System Event Log (Latest 50)</h2>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table">
+          <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Subscription</th>
+            <th>Event</th>
+            <th>Note</th>
+          </tr>
+          {% for event in events %}
+          <tr>
+            <td class="mono">{{ event.created_at|date:"M d, Y H:i" }}</td>
+            <td><strong>{{ event.subscription.user.username }}</strong></td>
+            <td>{{ event.subscription.name }}</td>
+            <td><span class="badge">{{ event.get_event_type_display }}</span></td>
+            <td style="color: var(--muted);">{{ event.note|default:"--" }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SubLife | Subscription Lifecycle Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8fbf5;
+      --panel: rgba(255,255,255,0.72);
+      --panel-solid: #ffffff;
+      --border: #d9ded6;
+      --border-strong: #bec9bf;
+      --text: #111712;
+      --muted: #667064;
+      --green: #008f52;
+      --red: #d92e42;
+      --yellow: #b87500;
+      --section-gap: clamp(4.5rem, 9vw, 8rem);
+      --max: 1180px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(135deg, rgba(0, 195, 107, 0.14), transparent 32%),
+        linear-gradient(315deg, rgba(245, 166, 35, 0.14), transparent 38%),
+        linear-gradient(180deg, #fbfff8 0%, #f6f2e9 48%, #eef8f2 100%);
+      color: var(--text);
+      font-family: "Barlow", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow-x: hidden;
+    }
+
+    body.booting {
+      overflow: hidden;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .mono,
+    .number,
+    .stat-value,
+    .timeline-value,
+    .formula,
+    .boot-line,
+    .badge,
+    .chip {
+      font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .boot-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      background:
+        linear-gradient(135deg, rgba(0, 195, 107, 0.12), transparent 44%),
+        linear-gradient(180deg, #fbfff8 0%, #eef8f2 100%);
+      transition: opacity 420ms ease, visibility 420ms ease;
+    }
+
+    .boot-screen.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .terminal {
+      width: min(680px, 100%);
+      min-height: 230px;
+      padding: clamp(1.25rem, 4vw, 2rem);
+      border: 1px solid var(--border-strong);
+      background: linear-gradient(145deg, rgba(255,255,255,0.94), rgba(255,255,255,0.62));
+      box-shadow: 0 24px 70px rgba(39, 53, 43, 0.14), inset 0 0 0 1px rgba(255,255,255,0.76);
+    }
+
+    .terminal-top {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .terminal-dot {
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 999px;
+      background: var(--muted);
+    }
+
+    .terminal-dot:nth-child(1) {
+      background: var(--red);
+    }
+
+    .terminal-dot:nth-child(2) {
+      background: var(--yellow);
+    }
+
+    .terminal-dot:nth-child(3) {
+      background: var(--green);
+    }
+
+    .boot-line {
+      min-height: 1.8rem;
+      margin: 0.32rem 0;
+      color: var(--green);
+      font-size: clamp(0.9rem, 2.5vw, 1.05rem);
+      letter-spacing: 0;
+      white-space: pre-wrap;
+      text-shadow: 0 0 14px rgba(0, 195, 107, 0.28);
+    }
+
+    .boot-line::after {
+      content: "";
+      display: inline-block;
+      width: 0.45rem;
+      height: 1em;
+      margin-left: 0.16rem;
+      translate: 0 0.15rem;
+      background: currentColor;
+      animation: caret 540ms steps(1) infinite;
+    }
+
+    .boot-line.done::after {
+      display: none;
+    }
+
+    @keyframes caret {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    .page-shell {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 600ms ease, transform 600ms ease;
+    }
+
+    body.ready .page-shell {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .site-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      border-bottom: 1px solid rgba(17, 23, 18, 0.08);
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(18px);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: min(var(--max), calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 0.95rem 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-family: "Bebas Neue", sans-serif;
+      font-size: 1.55rem;
+      letter-spacing: 0.03em;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 2.15rem;
+      height: 2.15rem;
+      border: 1px solid rgba(0, 195, 107, 0.42);
+      color: var(--green);
+      background: rgba(0, 195, 107, 0.08);
+      font-family: "DM Mono", monospace;
+      font-size: 0.85rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: clamp(0.9rem, 2.4vw, 1.5rem);
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav-links a {
+      transition: color 180ms ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .section {
+      position: relative;
+      padding: var(--section-gap) 0;
+      background:
+        linear-gradient(135deg, rgba(0, 195, 107, 0.1), transparent 44%),
+        linear-gradient(180deg, #fbfff8 0%, #eef8f2 100%);
+      clip-path: polygon(0 3.4vw, 100% 0, 100% calc(100% - 3.4vw), 0 100%);
+      margin-top: -3.4vw;
+    }
+
+    .section:nth-of-type(even) {
+      background:
+        linear-gradient(135deg, rgba(245, 166, 35, 0.12), transparent 42%),
+        linear-gradient(180deg, #fffaf1 0%, #f5fbf7 100%);
+      clip-path: polygon(0 0, 100% 3.4vw, 100% 100%, 0 calc(100% - 3.4vw));
+    }
+
+    .section:first-of-type {
+      clip-path: none;
+      margin-top: 0;
+    }
+
+    .section.final {
+      clip-path: polygon(0 3.4vw, 100% 0, 100% 100%, 0 100%);
+    }
+
+    .container {
+      width: min(var(--max), calc(100% - 2rem));
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: 100vh;
+      display: grid;
+      align-items: center;
+      padding-top: 6rem;
+      padding-bottom: 5rem;
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 0.74fr);
+      gap: clamp(2.2rem, 6vw, 5rem);
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-bottom: 1.2rem;
+      color: var(--green);
+      font-family: "DM Mono", monospace;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 20px currentColor;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      font-family: "Bebas Neue", Impact, sans-serif;
+      font-weight: 400;
+      line-height: 0.94;
+      letter-spacing: 0.03em;
+    }
+
+    h1 {
+      max-width: 760px;
+      font-size: clamp(4.6rem, 11vw, 9.6rem);
+      text-transform: uppercase;
+    }
+
+    .glitch {
+      position: relative;
+      display: inline-block;
+    }
+
+    body.ready .glitch::before,
+    body.ready .glitch::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    body.ready .glitch::before {
+      color: var(--green);
+      transform: translateX(-3px);
+      animation: glitch-left 900ms steps(2, end) 210ms 1;
+    }
+
+    body.ready .glitch::after {
+      color: var(--red);
+      transform: translateX(3px);
+      animation: glitch-right 900ms steps(2, end) 210ms 1;
+    }
+
+    @keyframes glitch-left {
+      0%, 100% {
+        clip-path: inset(0 0 100% 0);
+        opacity: 0;
+      }
+      10% {
+        clip-path: inset(0 0 72% 0);
+        opacity: 0.8;
+      }
+      25% {
+        clip-path: inset(44% 0 35% 0);
+        opacity: 0.72;
+      }
+      43% {
+        clip-path: inset(78% 0 7% 0);
+        opacity: 0.85;
+      }
+      64% {
+        clip-path: inset(22% 0 53% 0);
+        opacity: 0.65;
+      }
+    }
+
+    @keyframes glitch-right {
+      0%, 100% {
+        clip-path: inset(100% 0 0 0);
+        opacity: 0;
+      }
+      14% {
+        clip-path: inset(70% 0 8% 0);
+        opacity: 0.75;
+      }
+      31% {
+        clip-path: inset(8% 0 76% 0);
+        opacity: 0.84;
+      }
+      50% {
+        clip-path: inset(41% 0 36% 0);
+        opacity: 0.7;
+      }
+    }
+
+    .hero-copy {
+      max-width: 690px;
+      margin: 1.35rem 0 0;
+      color: #3f4a43;
+      font-size: clamp(1.06rem, 2.2vw, 1.38rem);
+      line-height: 1.62;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.9rem;
+      margin-top: 2.1rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 3.15rem;
+      padding: 0.9rem 1.28rem;
+      border: 1px solid rgba(17, 23, 18, 0.18);
+      background: transparent;
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      border-color: rgba(17, 23, 18, 0.48);
+    }
+
+    .btn.primary {
+      background: #111712;
+      color: #ffffff;
+      border-color: #111712;
+    }
+
+    .btn.primary:hover {
+      background: #223026;
+    }
+
+    .dashboard-preview {
+      position: relative;
+      min-height: 410px;
+      padding: clamp(1.1rem, 3vw, 1.5rem);
+      border: 1px solid var(--border);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.92), rgba(255,255,255,0.56)),
+        var(--panel);
+      box-shadow: 0 34px 100px rgba(39, 53, 43, 0.16);
+      transform: rotate(2.2deg);
+      transition: transform 260ms ease, border-color 260ms ease;
+    }
+
+    .dashboard-preview:hover {
+      transform: rotate(0deg) translateY(-4px);
+      border-color: rgba(0, 195, 107, 0.5);
+    }
+
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-bottom: 1.1rem;
+      border-bottom: 1px solid rgba(17, 23, 18, 0.08);
+    }
+
+    .preview-title {
+      color: var(--muted);
+      font-size: 0.83rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .preview-status {
+      color: var(--green);
+      font-size: 0.76rem;
+    }
+
+    .mini-timeline {
+      display: grid;
+      grid-template-columns: 6fr 3fr 5fr;
+      height: 4.4rem;
+      margin: 2rem 0;
+      overflow: hidden;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      background: rgba(255,255,255,0.68);
+    }
+
+    .mini-segment {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.55rem;
+      color: #050505;
+      font-family: "DM Mono", monospace;
+      font-size: clamp(0.62rem, 1.4vw, 0.78rem);
+      line-height: 1.2;
+      text-align: center;
+      min-width: 0;
+    }
+
+    .mini-segment.active {
+      background: var(--green);
+      color: #ffffff;
+    }
+
+    .mini-segment.paused {
+      background: var(--yellow);
+    }
+
+    .mini-segment.wasted {
+      background: var(--red);
+      color: #ffffff;
+    }
+
+    .preview-metrics {
+      display: grid;
+      gap: 0.72rem;
+    }
+
+    .metric-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-height: 4.25rem;
+      padding: 0.9rem 1rem;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      background: rgba(255,255,255,0.78);
+    }
+
+    .metric-chip span:first-child {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .metric-chip .number {
+      color: var(--text);
+      text-align: right;
+    }
+
+    .section-heading {
+      max-width: 780px;
+      margin-bottom: clamp(2rem, 5vw, 3.25rem);
+    }
+
+    .section-heading.center {
+      margin-left: auto;
+      margin-right: auto;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: clamp(3.1rem, 7vw, 6.2rem);
+      text-transform: uppercase;
+    }
+
+    .section-heading p {
+      margin: 0.95rem 0 0;
+      color: #455047;
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      line-height: 1.62;
+    }
+
+    .timeline-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr) 120px 130px;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      transition: transform 220ms ease, border-color 220ms ease;
+    }
+
+    .timeline-row:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0, 195, 107, 0.4);
+    }
+
+    .sub-name {
+      display: grid;
+      gap: 0.28rem;
+      font-weight: 700;
+    }
+
+    .tag {
+      width: max-content;
+      padding: 0.16rem 0.45rem;
+      border: 1px solid rgba(17, 23, 18, 0.12);
+      color: var(--muted);
+      font-size: 0.66rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .timeline-bar {
+      display: flex;
+      width: 100%;
+      min-height: 2.7rem;
+      overflow: hidden;
+      background: rgba(17, 23, 18, 0.06);
+      border: 1px solid rgba(17, 23, 18, 0.08);
+    }
+
+    .timeline-segment {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 0;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      color: #050505;
+      font-family: "DM Mono", monospace;
+      font-size: 0.74rem;
+      line-height: 1;
+      transition: width 1s cubic-bezier(.18,.8,.2,1);
+    }
+
+    .timeline-segment span {
+      padding: 0 0.35rem;
+      opacity: 0;
+      transition: opacity 260ms ease 620ms;
+    }
+
+    .timeline-row.in-view .timeline-segment {
+      width: var(--w);
+    }
+
+    .timeline-row.in-view .timeline-segment span {
+      opacity: 1;
+    }
+
+    .timeline-segment.active {
+      background: var(--green);
+      color: #ffffff;
+    }
+
+    .timeline-segment.paused {
+      background: var(--yellow);
+    }
+
+    .timeline-segment.wasted {
+      background: var(--red);
+      color: var(--text);
+    }
+
+    .timeline-value {
+      color: #ffffff;
+      text-align: right;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 2rem;
+      padding: 0.38rem 0.54rem;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      color: var(--muted);
+      font-size: 0.68rem;
+      text-align: center;
+    }
+
+    .badge.green {
+      color: var(--green);
+      border-color: rgba(0, 195, 107, 0.3);
+      background: rgba(0, 195, 107, 0.08);
+    }
+
+    .badge.yellow {
+      color: var(--yellow);
+      border-color: rgba(245, 166, 35, 0.32);
+      background: rgba(245, 166, 35, 0.08);
+    }
+
+    .badge.red {
+      color: var(--red);
+      border-color: rgba(232, 51, 74, 0.32);
+      background: rgba(232, 51, 74, 0.08);
+    }
+
+    .simulator-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: clamp(1.2rem, 4vw, 2rem);
+      align-items: stretch;
+    }
+
+    .simulator-panel,
+    .ring-panel,
+    .dashboard-panel,
+    .flow-panel {
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .simulator-panel {
+      padding: clamp(1.2rem, 3vw, 1.7rem);
+    }
+
+    .slider-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.4rem;
+    }
+
+    .slider-title {
+      font-size: clamp(1.05rem, 2vw, 1.28rem);
+      font-weight: 700;
+    }
+
+    .slider-days {
+      color: var(--green);
+      font-size: 1.05rem;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .outputs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin: 1.7rem 0 1.2rem;
+    }
+
+    .output-card {
+      min-height: 8.5rem;
+      display: grid;
+      align-content: center;
+      gap: 0.58rem;
+      padding: 1rem;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      background: rgba(255,255,255,0.78);
+    }
+
+    .output-card .label {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-family: "DM Mono", monospace;
+      text-transform: uppercase;
+      line-height: 1.35;
+    }
+
+    .output-card .stat-value {
+      color: var(--text);
+      font-size: clamp(1.7rem, 4vw, 2.65rem);
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .formula {
+      margin-top: 1.3rem;
+      padding: 1rem;
+      color: #354039;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      background: rgba(255,255,255,0.72);
+      font-size: clamp(0.72rem, 2vw, 0.9rem);
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+
+    .ring-panel {
+      display: grid;
+      place-items: center;
+      padding: 1.2rem;
+    }
+
+    .efficiency-ring {
+      width: min(260px, 100%);
+      aspect-ratio: 1;
+      transform: rotate(-90deg);
+      overflow: visible;
+    }
+
+    .ring-track {
+      fill: none;
+      stroke: rgba(17, 23, 18, 0.1);
+      stroke-width: 16;
+    }
+
+    .ring-progress {
+      fill: none;
+      stroke: var(--green);
+      stroke-width: 16;
+      stroke-linecap: round;
+      stroke-dasharray: 628;
+      stroke-dashoffset: 628;
+      filter: drop-shadow(0 0 12px rgba(0, 195, 107, 0.34));
+      transition: stroke-dashoffset 220ms ease, stroke 220ms ease;
+    }
+
+    .ring-zone {
+      fill: none;
+      stroke-width: 3;
+      stroke-linecap: round;
+      opacity: 0.8;
+    }
+
+    .ring-zone.red {
+      stroke: var(--red);
+      stroke-dasharray: 210 418;
+      stroke-dashoffset: 0;
+    }
+
+    .ring-zone.yellow {
+      stroke: var(--yellow);
+      stroke-dasharray: 188 440;
+      stroke-dashoffset: -230;
+    }
+
+    .ring-zone.green {
+      stroke: var(--green);
+      stroke-dasharray: 198 430;
+      stroke-dashoffset: -430;
+    }
+
+    .ring-label {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      gap: 0.2rem;
+    }
+
+    .ring-wrap {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 100%;
+    }
+
+    .ring-label .number {
+      font-size: clamp(2rem, 6vw, 3rem);
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .ring-label span:last-child {
+      color: var(--muted);
+      font-size: 0.86rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .waste-card,
+    .feature-card,
+    .state-card {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      transition: transform 220ms ease, border-color 220ms ease, background 220ms ease;
+    }
+
+    .waste-card {
+      display: grid;
+      gap: 1.1rem;
+      padding: 1.12rem;
+      border-color: color-mix(in srgb, var(--heat) 34%, var(--border));
+    }
+
+    .waste-card:hover,
+    .feature-card:hover,
+    .state-card:hover,
+    .alert-card:hover,
+    .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--heat, rgba(17, 23, 18, 0.38));
+      background: rgba(255,255,255,0.92);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .card-meta {
+      margin-top: 0.24rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .cost {
+      color: var(--text);
+      font-family: "DM Mono", monospace;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .mini-active {
+      display: grid;
+      gap: 0.42rem;
+    }
+
+    .mini-active-label {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .mini-active-track {
+      height: 0.7rem;
+      background: rgba(17, 23, 18, 0.09);
+      overflow: hidden;
+    }
+
+    .mini-active-fill {
+      height: 100%;
+      width: var(--eff);
+      background: var(--heat);
+    }
+
+    .waste-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      color: var(--muted);
+    }
+
+    .waste-line strong {
+      color: var(--heat);
+      font-family: "DM Mono", monospace;
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .alerts {
+      display: grid;
+      gap: 1rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .alert-card {
+      display: grid;
+      grid-template-columns: 0.55rem minmax(0, 1fr) auto;
+      gap: 1rem;
+      align-items: center;
+      min-height: 6.2rem;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      transition: transform 220ms ease, border-color 220ms ease;
+      opacity: 0;
+      transform: translateY(18px);
+    }
+
+    .alert-card.in-view {
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: var(--delay);
+    }
+
+    .alert-strip {
+      height: 100%;
+      background: var(--heat);
+    }
+
+    .alert-main {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      padding: 1rem 0;
+      min-width: 0;
+    }
+
+    .alert-icon {
+      display: grid;
+      place-items: center;
+      width: 2.3rem;
+      height: 2.3rem;
+      border: 1px solid color-mix(in srgb, var(--heat) 48%, rgba(17, 23, 18, 0.12));
+      color: var(--heat);
+      font-size: 1rem;
+      flex: 0 0 auto;
+    }
+
+    .alert-title {
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .alert-desc {
+      margin-top: 0.3rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .alert-card .btn {
+      min-height: 2.55rem;
+      margin-right: 1rem;
+      padding: 0.62rem 0.86rem;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+
+    .dashboard-panel {
+      padding: clamp(1rem, 3vw, 1.4rem);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.3rem;
+    }
+
+    .stat-card {
+      min-height: 8.2rem;
+      display: grid;
+      align-content: center;
+      gap: 0.35rem;
+      padding: 1rem;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      background: rgba(255,255,255,0.72);
+      transition: transform 220ms ease, border-color 220ms ease;
+    }
+
+    .stat-card .stat-value {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      line-height: 1;
+    }
+
+    .stat-card .label {
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .breakdown {
+      display: grid;
+      gap: 1.1rem;
+      margin-top: 1rem;
+    }
+
+    .monthly-bar {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    .big-track {
+      display: grid;
+      grid-template-columns: 62fr 38fr;
+      height: 1.2rem;
+      background: rgba(17, 23, 18, 0.09);
+      overflow: hidden;
+    }
+
+    .big-track span:first-child {
+      background: var(--green);
+    }
+
+    .big-track span:last-child {
+      background: repeating-linear-gradient(90deg, rgba(232, 51, 74, 0.96) 0 9px, rgba(232, 51, 74, 0.62) 9px 16px);
+    }
+
+    .monthly-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      color: var(--muted);
+      font-family: "DM Mono", monospace;
+      font-size: 0.86rem;
+    }
+
+    .category-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .category-row {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr) 90px;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
+    .category-row span:first-child {
+      color: #2c352f;
+    }
+
+    .category-track {
+      height: 0.78rem;
+      background: rgba(17, 23, 18, 0.09);
+      overflow: hidden;
+    }
+
+    .category-fill {
+      height: 100%;
+      width: var(--w);
+      background: var(--heat);
+    }
+
+    .category-value {
+      text-align: right;
+      font-family: "DM Mono", monospace;
+      color: var(--text);
+    }
+
+    .flow-panel {
+      padding: clamp(1rem, 3vw, 1.5rem);
+      overflow: hidden;
+    }
+
+    .state-flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      align-items: center;
+      position: relative;
+      margin-bottom: 1.3rem;
+    }
+
+    .flow-node {
+      position: relative;
+      display: grid;
+      place-items: center;
+      min-height: 4rem;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      color: var(--text);
+      background: rgba(255,255,255,0.68);
+      font-family: "DM Mono", monospace;
+      font-size: 0.8rem;
+      text-align: center;
+      z-index: 1;
+    }
+
+    .flow-node:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: calc(100% + 0.15rem);
+      top: 50%;
+      width: 0.7rem;
+      height: 0.7rem;
+      border-top: 2px solid var(--green);
+      border-right: 2px solid var(--green);
+      transform: translateY(-50%) rotate(45deg);
+    }
+
+    .cancel-path {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      min-height: 3.6rem;
+      margin: 0.25rem 0 1.35rem;
+      color: var(--red);
+      font-family: "DM Mono", monospace;
+      font-size: 0.85rem;
+    }
+
+    .cancel-path::before,
+    .cancel-path::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: rgba(232, 51, 74, 0.55);
+    }
+
+    .state-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .state-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem;
+    }
+
+    .state-dot {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+      background: var(--heat);
+      box-shadow: 0 0 18px var(--heat);
+      flex: 0 0 auto;
+    }
+
+    .feature-card {
+      min-height: 13.5rem;
+      display: grid;
+      align-content: start;
+      gap: 0.9rem;
+      padding: 1.15rem;
+    }
+
+    .feature-icon {
+      display: grid;
+      place-items: center;
+      width: 2.6rem;
+      height: 2.6rem;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      color: var(--heat);
+      font-size: 1.2rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1.85rem;
+      line-height: 1;
+    }
+
+    .feature-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.52;
+    }
+
+    .final-cta {
+      display: grid;
+      justify-items: center;
+      text-align: center;
+      padding: clamp(2.5rem, 6vw, 4rem) 1rem;
+      border: 1px solid rgba(17, 23, 18, 0.1);
+      background:
+        linear-gradient(90deg, rgba(0,195,107,0.16), transparent 34%, rgba(232,51,74,0.1)),
+        rgba(255,255,255,0.74);
+    }
+
+    .final-cta h2 {
+      max-width: 850px;
+    }
+
+    .final-cta p {
+      max-width: 540px;
+      margin: 1rem 0 0;
+      color: #455047;
+      font-size: 1.17rem;
+      line-height: 1.55;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 650ms ease, transform 650ms ease;
+    }
+
+    .reveal.in-view {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 980px) {
+      .nav-links {
+        display: none;
+      }
+
+      .hero-grid,
+      .simulator-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-preview {
+        max-width: 580px;
+        transform: none;
+      }
+
+      .timeline-row {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+
+      .timeline-value {
+        text-align: left;
+      }
+
+      .badge {
+        justify-content: flex-start;
+        width: max-content;
+      }
+
+      .cards-grid,
+      .state-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      :root {
+        --section-gap: 4.2rem;
+      }
+
+      body {
+        background:
+          linear-gradient(145deg, rgba(0, 195, 107, 0.12), transparent 36%),
+          linear-gradient(180deg, #fbfff8 0%, #f6f2e9 48%, #eef8f2 100%);
+      }
+
+      .section,
+      .section:nth-of-type(even),
+      .section.final {
+        clip-path: polygon(0 1.3rem, 100% 0, 100% calc(100% - 1.3rem), 0 100%);
+        margin-top: -1.3rem;
+      }
+
+      .hero {
+        min-height: auto;
+      }
+
+      h1 {
+        font-size: clamp(4rem, 21vw, 5.8rem);
+      }
+
+      .actions,
+      .slider-top,
+      .monthly-label {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+
+      .outputs,
+      .cards-grid,
+      .state-grid,
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .alert-card {
+        grid-template-columns: 0.42rem 1fr;
+      }
+
+      .alert-card .btn {
+        grid-column: 2;
+        width: calc(100% - 1rem);
+        margin: 0 1rem 1rem 0;
+      }
+
+      .alert-main {
+        padding-bottom: 0;
+      }
+
+      .category-row {
+        grid-template-columns: 1fr;
+        gap: 0.38rem;
+      }
+
+      .category-value {
+        text-align: left;
+      }
+
+      .state-flow {
+        grid-template-columns: 1fr;
+      }
+
+      .flow-node:not(:last-child)::after {
+        left: 50%;
+        top: calc(100% + 0.15rem);
+        transform: translateX(-50%) rotate(135deg);
+      }
+
+      .terminal {
+        min-height: 250px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 1ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="booting">
+  <div class="boot-screen" id="bootScreen" aria-live="polite" aria-label="System boot sequence">
+    <div class="terminal">
+      <div class="terminal-top" aria-hidden="true">
+        <span class="terminal-dot"></span>
+        <span class="terminal-dot"></span>
+        <span class="terminal-dot"></span>
+      </div>
+      <p class="boot-line" id="bootLine0"></p>
+      <p class="boot-line" id="bootLine1"></p>
+      <p class="boot-line" id="bootLine2"></p>
+      <p class="boot-line" id="bootLine3"></p>
+    </div>
+  </div>
+
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="nav" aria-label="Primary navigation">
+        <a class="brand" href="#top" aria-label="SubLife home">
+          <span class="brand-mark">SL</span>
+          <span>SubLife</span>
+        </a>
+        <div class="nav-links">
+          <a href="#timeline">Timeline</a>
+          <a href="#simulator">Simulator</a>
+          <a href="#alerts">Alerts</a>
+          <a href="#dashboard">Insights</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero section">
+        <div class="container hero-grid">
+          <div>
+            <span class="eyebrow">Lifecycle intelligence online</span>
+            <h1>
+              <span class="glitch" data-text="Stop Paying for What You Don't Use.">Stop Paying for What You Don't Use.</span>
+            </h1>
+            <p class="hero-copy">Simulate subscription timelines, visualize usage vs waste, and make smarter financial decisions — before they cost you.</p>
+            <div class="actions">
+              <a class="btn primary" href="#simulator">Start Tracking</a>
+              <a class="btn" href="#timeline">View Demo</a>
+            </div>
+          </div>
+
+          <aside class="dashboard-preview reveal" aria-label="Subscription dashboard preview">
+            <div class="preview-header">
+              <div>
+                <div class="preview-title">Monthly lifecycle</div>
+                <strong class="mono">Feb 2026</strong>
+              </div>
+              <div class="preview-status mono">SYSTEM ONLINE</div>
+            </div>
+
+            <div class="mini-timeline" aria-label="Mini timeline showing active, paused and wasted periods">
+              <span class="mini-segment active">Active</span>
+              <span class="mini-segment paused">Paused</span>
+              <span class="mini-segment wasted">Wasted</span>
+            </div>
+
+            <div class="preview-metrics">
+              <div class="metric-chip">
+                <span>Waste detected</span>
+                <strong class="number">₹450 this month</strong>
+              </div>
+              <div class="metric-chip">
+                <span>Efficiency score</span>
+                <strong class="number">68%</strong>
+              </div>
+              <div class="metric-chip">
+                <span>Next billing</span>
+                <strong class="number">3 days</strong>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="timeline">
+        <div class="container">
+          <div class="section-heading reveal">
+            <h2>See Your Subscription Life, Not Just Numbers</h2>
+            <p>Understand exactly when you used your subscription — and when you paid for nothing.</p>
+          </div>
+          <div class="timeline-list" id="timelineList"></div>
+        </div>
+      </section>
+
+      <section class="section" id="simulator">
+        <div class="container">
+          <div class="section-heading reveal">
+            <h2>Predict Before You Pay</h2>
+            <p>Drag the slider. Watch the math update live. Decide before it costs you.</p>
+          </div>
+
+          <div class="simulator-grid">
+            <div class="simulator-panel reveal">
+              <div class="slider-top">
+                <div class="slider-title">Pause Netflix for <span class="mono" id="pauseDaysText">14</span> days</div>
+                <div class="slider-days mono">₹499/mo</div>
+              </div>
+              <input id="pauseSlider" type="range" min="0" max="30" value="14" aria-label="Pause Netflix days">
+
+              <div class="outputs" aria-live="polite">
+                <div class="output-card">
+                  <span class="label">Estimated Savings</span>
+                  <strong class="stat-value" id="savingsValue">₹120.00</strong>
+                </div>
+                <div class="output-card">
+                  <span class="label">Waste Reduced</span>
+                  <strong class="stat-value" id="reducedValue">35%</strong>
+                </div>
+                <div class="output-card">
+                  <span class="label">New Efficiency</span>
+                  <strong class="stat-value" id="efficiencyValue">78%</strong>
+                </div>
+              </div>
+
+              <pre class="formula">Efficiency (%) = (Active Days ÷ Total Days) × 100
+Waste (₹)      = Monthly Cost × (1 − Efficiency ÷ 100)</pre>
+            </div>
+
+            <div class="ring-panel reveal">
+              <div class="ring-wrap">
+                <svg class="efficiency-ring" viewBox="0 0 240 240" aria-hidden="true">
+                  <circle class="ring-track" cx="120" cy="120" r="100"></circle>
+                  <circle class="ring-zone red" cx="120" cy="120" r="111"></circle>
+                  <circle class="ring-zone yellow" cx="120" cy="120" r="111"></circle>
+                  <circle class="ring-zone green" cx="120" cy="120" r="111"></circle>
+                  <circle class="ring-progress" id="ringProgress" cx="120" cy="120" r="100"></circle>
+                </svg>
+                <div class="ring-label">
+                  <strong class="number" id="ringLabel">78%</strong>
+                  <span>Efficient</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="waste">
+        <div class="container">
+          <div class="section-heading reveal">
+            <h2>Where Your Money Disappears</h2>
+            <p>Not all subscriptions are equal. Some work hard for you. Others quietly drain your wallet.</p>
+          </div>
+          <div class="cards-grid" id="wasteCards"></div>
+        </div>
+      </section>
+
+      <section class="section" id="alerts">
+        <div class="container">
+          <div class="section-heading center reveal">
+            <h2>Never Miss the Right Moment to Pause</h2>
+            <p>Timing is everything — know exactly when to act before the charge hits.</p>
+          </div>
+          <div class="alerts" id="alertCards"></div>
+        </div>
+      </section>
+
+      <section class="section" id="dashboard">
+        <div class="container">
+          <div class="section-heading reveal">
+            <h2>Your Subscription Intelligence Center</h2>
+            <p>Everything you spend, summarized. No spreadsheets. No guessing.</p>
+          </div>
+          <div class="dashboard-panel reveal">
+            <div class="stats-grid">
+              <div class="stat-card" style="--heat: var(--green)">
+                <strong class="stat-value">6</strong>
+                <span class="label">Total Subs<br>This Month</span>
+              </div>
+              <div class="stat-card" style="--heat: var(--yellow)">
+                <strong class="stat-value">₹4,581</strong>
+                <span class="label">Total Spent<br>This Month</span>
+              </div>
+              <div class="stat-card" style="--heat: var(--red)">
+                <strong class="stat-value">38%</strong>
+                <span class="label">Waste Rate</span>
+              </div>
+              <div class="stat-card" style="--heat: var(--green)">
+                <strong class="stat-value">62%</strong>
+                <span class="label">Efficiency<br>Score</span>
+              </div>
+            </div>
+
+            <div class="breakdown">
+              <div class="monthly-bar">
+                <div class="big-track" aria-label="62 percent used and 38 percent wasted">
+                  <span></span>
+                  <span></span>
+                </div>
+                <div class="monthly-label">
+                  <span>62% Used</span>
+                  <span>38% Wasted</span>
+                </div>
+              </div>
+              <div class="category-list" id="categoryList"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="states">
+        <div class="container">
+          <div class="section-heading reveal">
+            <h2>Every Subscription Has a Story</h2>
+            <p>Track the full lifecycle — from activation to renewal — and know exactly where each subscription stands right now.</p>
+          </div>
+          <div class="flow-panel reveal">
+            <div class="state-flow" aria-label="Subscription lifecycle state flow">
+              <div class="flow-node">ACTIVE</div>
+              <div class="flow-node">PAUSED</div>
+              <div class="flow-node">NEAR BILLING</div>
+              <div class="flow-node">RENEWED</div>
+            </div>
+            <div class="cancel-path">CANCELLED</div>
+            <div class="state-grid" id="stateCards"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <div class="container">
+          <div class="section-heading center reveal">
+            <h2>Everything Built Around Your Decisions</h2>
+          </div>
+          <div class="cards-grid" id="featureCards"></div>
+        </div>
+      </section>
+
+      <section class="section final" id="cta">
+        <div class="container">
+          <div class="final-cta reveal">
+            <h2>Take Control of Every Rupee You Spend.</h2>
+            <p>Start tracking. Stop wasting. Spend with clarity.</p>
+            <div class="actions">
+              <a class="btn primary" href="#simulator">Get Started</a>
+              <a class="btn" href="#timeline">Try Demo</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const colors = {
+      green: "#00c36b",
+      red: "#e8334a",
+      yellow: "#f5a623"
+    };
+
+    const heatForEfficiency = (efficiency) => {
+      if (efficiency >= 70) return { label: "EFFICIENT", color: colors.green, tone: "green", icon: "✓" };
+      if (efficiency >= 40) return { label: "MODERATE", color: colors.yellow, tone: "yellow", icon: "!" };
+      return { label: "HIGH WASTE", color: colors.red, tone: "red", icon: "!" };
+    };
+
+    const timelines = [
+      {
+        name: "Netflix",
+        category: "Entertainment",
+        waste: "₹124 wasted",
+        state: "ACTIVE",
+        tone: "green",
+        segments: [
+          { type: "active", label: "Active 60%", width: 60 },
+          { type: "paused", label: "Paused 15%", width: 15 },
+          { type: "wasted", label: "Wasted 25%", width: 25 }
+        ]
+      },
+      {
+        name: "Gym",
+        category: "Fitness",
+        waste: "₹324 wasted",
+        state: "NEAR BILLING",
+        tone: "red",
+        segments: [
+          { type: "active", label: "Active 35%", width: 35 },
+          { type: "wasted", label: "Wasted 65%", width: 65 }
+        ]
+      },
+      {
+        name: "Coursera",
+        category: "Learning",
+        waste: "₹74 wasted",
+        state: "RENEWED",
+        tone: "green",
+        segments: [
+          { type: "active", label: "Active 85%", width: 85 },
+          { type: "wasted", label: "Wasted 15%", width: 15 }
+        ]
+      },
+      {
+        name: "Spotify",
+        category: "Entertainment",
+        waste: "₹87 wasted",
+        state: "PAUSED",
+        tone: "yellow",
+        segments: [
+          { type: "active", label: "Active 45%", width: 45 },
+          { type: "paused", label: "Paused 20%", width: 20 },
+          { type: "wasted", label: "Wasted 35%", width: 35 }
+        ]
+      }
+    ];
+
+    const subscriptions = [
+      { name: "Netflix", category: "Entertainment", cost: "₹499/mo", active: 18, total: 30, wasted: "₹210 wasted" },
+      { name: "Gym", category: "Fitness", cost: "₹1,200/mo", active: 8, total: 30, wasted: "₹880 wasted" },
+      { name: "Coursera", category: "Learning", cost: "₹899/mo", active: 26, total: 30, wasted: "₹89 wasted" },
+      { name: "Spotify", category: "Entertainment", cost: "₹119/mo", active: 15, total: 30, wasted: "₹59 wasted" },
+      { name: "Adobe CC", category: "Tools", cost: "₹1,675/mo", active: 20, total: 30, wasted: "₹558 wasted" },
+      { name: "YouTube Premium", category: "Entertainment", cost: "₹189/mo", active: 28, total: 30, wasted: "₹12 wasted" }
+    ];
+
+    const alerts = [
+      {
+        icon: "!",
+        title: "Netflix billing on 28th Feb",
+        desc: "Pause by 25th to save ₹499",
+        button: "Take Action",
+        heat: colors.red
+      },
+      {
+        icon: "!",
+        title: "Gym auto-renews in 3 days",
+        desc: "You've visited 0 times this month",
+        button: "Take Action",
+        heat: colors.yellow
+      },
+      {
+        icon: "✓",
+        title: "Coursera",
+        desc: "You've used 26/30 days. Renewing is worth it.",
+        button: "View Details",
+        heat: colors.green
+      }
+    ];
+
+    const categories = [
+      { name: "Entertainment", amount: "₹1,100", width: 78, heat: colors.green },
+      { name: "Fitness", amount: "₹1,200", width: 38, heat: colors.red },
+      { name: "Learning", amount: "₹899", width: 68, heat: colors.yellow },
+      { name: "Tools", amount: "₹1,382", width: 52, heat: colors.yellow }
+    ];
+
+    const states = [
+      { name: "Netflix", state: "ACTIVE", heat: colors.green },
+      { name: "Gym", state: "NEAR BILLING", heat: colors.red },
+      { name: "Coursera", state: "RENEWED", heat: colors.green },
+      { name: "Spotify", state: "PAUSED", heat: colors.yellow },
+      { name: "Adobe CC", state: "ACTIVE", heat: colors.green },
+      { name: "YouTube Premium", state: "RENEWED", heat: colors.green }
+    ];
+
+    const features = [
+      { icon: "📅", title: "Lifecycle Tracking", text: "Visual timeline of active, paused, and wasted days per subscription", heat: colors.green },
+      { icon: "⏸", title: "Pause / Resume Logging", text: "Every pause and resume logged with timestamp and cost impact", heat: colors.yellow },
+      { icon: "📐", title: "Cost Efficiency Score", text: "Real-time formula: Active Days ÷ Total Days × 100", heat: colors.green },
+      { icon: "📊", title: "Visual Analytics", text: "Bars, rings, breakdowns — not just raw numbers", heat: colors.yellow },
+      { icon: "🔔", title: "Smart Billing Alerts", text: "Surfaces alerts before billing hits so you act in time", heat: colors.red },
+      { icon: "🔮", title: "What-If Simulator", text: "Test pause decisions and see savings before committing", heat: colors.green }
+    ];
+
+    const timelineList = document.querySelector("#timelineList");
+    const wasteCards = document.querySelector("#wasteCards");
+    const alertCards = document.querySelector("#alertCards");
+    const categoryList = document.querySelector("#categoryList");
+    const stateCards = document.querySelector("#stateCards");
+    const featureCards = document.querySelector("#featureCards");
+
+    timelineList.innerHTML = timelines.map((item) => `
+      <article class="timeline-row reveal">
+        <div class="sub-name">
+          <span>${item.name}</span>
+          <span class="tag">${item.category}</span>
+        </div>
+        <div class="timeline-bar" aria-label="${item.name} usage timeline">
+          ${item.segments.map((segment) => `
+            <span class="timeline-segment ${segment.type}" style="--w:${segment.width}%">
+              <span>${segment.label}</span>
+            </span>
+          `).join("")}
+        </div>
+        <strong class="timeline-value">${item.waste}</strong>
+        <span class="badge ${item.tone}">${item.state}</span>
+      </article>
+    `).join("");
+
+    wasteCards.innerHTML = subscriptions.map((sub) => {
+      const efficiency = Math.round((sub.active / sub.total) * 100);
+      const heat = heatForEfficiency(efficiency);
+      return `
+        <article class="waste-card reveal" style="--heat:${heat.color}; --eff:${efficiency}%">
+          <div class="card-top">
+            <div>
+              <div class="card-title">${sub.name}</div>
+              <div class="card-meta">${sub.category}</div>
+            </div>
+            <strong class="cost">${sub.cost}</strong>
+          </div>
+          <div class="mini-active">
+            <div class="mini-active-label">
+              <span>Active days</span>
+              <span class="mono">${sub.active}/${sub.total}</span>
+            </div>
+            <div class="mini-active-track">
+              <div class="mini-active-fill"></div>
+            </div>
+          </div>
+          <div class="waste-line">
+            <span>Waste</span>
+            <strong>${sub.wasted}</strong>
+          </div>
+          <span class="badge ${heat.tone}">${heat.icon} ${heat.label}</span>
+        </article>
+      `;
+    }).join("");
+
+    alertCards.innerHTML = alerts.map((alert, index) => `
+      <article class="alert-card" style="--heat:${alert.heat}; --delay:${index * 110}ms">
+        <span class="alert-strip"></span>
+        <div class="alert-main">
+          <span class="alert-icon">${alert.icon}</span>
+          <div>
+            <div class="alert-title">${alert.title}</div>
+            <div class="alert-desc">${alert.desc}</div>
+          </div>
+        </div>
+        <button class="btn" type="button">${alert.button}</button>
+      </article>
+    `).join("");
+
+    categoryList.innerHTML = categories.map((category) => `
+      <div class="category-row">
+        <span>${category.name}</span>
+        <span class="category-track">
+          <span class="category-fill" style="--w:${category.width}%; --heat:${category.heat}"></span>
+        </span>
+        <span class="category-value">${category.amount}</span>
+      </div>
+    `).join("");
+
+    stateCards.innerHTML = states.map((item) => `
+      <article class="state-card" style="--heat:${item.heat}">
+        <div>
+          <strong>${item.name}</strong>
+          <div class="card-meta mono">${item.state}</div>
+        </div>
+        <span class="state-dot" aria-hidden="true"></span>
+      </article>
+    `).join("");
+
+    featureCards.innerHTML = features.map((feature) => `
+      <article class="feature-card reveal" style="--heat:${feature.heat}">
+        <span class="feature-icon">${feature.icon}</span>
+        <h3>${feature.title}</h3>
+        <p>${feature.text}</p>
+      </article>
+    `).join("");
+
+    const slider = document.querySelector("#pauseSlider");
+    const pauseDaysText = document.querySelector("#pauseDaysText");
+    const savingsValue = document.querySelector("#savingsValue");
+    const reducedValue = document.querySelector("#reducedValue");
+    const efficiencyValue = document.querySelector("#efficiencyValue");
+    const ringProgress = document.querySelector("#ringProgress");
+    const ringLabel = document.querySelector("#ringLabel");
+    const circumference = 2 * Math.PI * 100;
+
+    function updateSimulator() {
+      const days = Number(slider.value);
+      const efficiency = Math.min(96, Math.round(60 + days * 1.3));
+      const savings = Math.min(258, days * 8.57);
+      const wasteReduced = Math.min(75, Math.round(days * 2.5));
+      const heat = heatForEfficiency(efficiency);
+
+      pauseDaysText.textContent = days;
+      savingsValue.textContent = `₹${savings.toFixed(2)}`;
+      reducedValue.textContent = `${wasteReduced}%`;
+      efficiencyValue.textContent = `${efficiency}%`;
+      ringLabel.textContent = `${efficiency}%`;
+      ringProgress.style.stroke = heat.color;
+      ringProgress.style.strokeDasharray = circumference.toFixed(2);
+      ringProgress.style.strokeDashoffset = (circumference * (1 - efficiency / 100)).toFixed(2);
+    }
+
+    slider.addEventListener("input", updateSimulator);
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in-view");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.18, rootMargin: "0px 0px -8% 0px" });
+
+    document.querySelectorAll(".reveal, .timeline-row, .alert-card").forEach((el) => observer.observe(el));
+
+    const bootLines = [
+      "> INITIALIZING SUBLIFE ENGINE...",
+      "> LOADING SUBSCRIPTION DATA......",
+      "> CALCULATING WASTE METRICS.....",
+      "> SYSTEM ONLINE ✓"
+    ];
+
+    async function typeBootSequence() {
+      const lineNodes = bootLines.map((_, index) => document.querySelector(`#bootLine${index}`));
+      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (prefersReduced) {
+        lineNodes.forEach((node, index) => {
+          node.textContent = bootLines[index];
+          node.classList.add("done");
+        });
+      } else {
+        for (let i = 0; i < bootLines.length; i++) {
+          const node = lineNodes[i];
+          for (let char = 0; char < bootLines[i].length; char++) {
+            node.textContent += bootLines[i][char];
+            await new Promise((resolve) => setTimeout(resolve, 8));
+          }
+          node.classList.add("done");
+          await new Promise((resolve) => setTimeout(resolve, 70));
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, prefersReduced ? 120 : 240));
+      document.querySelector("#bootScreen").classList.add("is-hidden");
+      document.body.classList.remove("booting");
+      document.body.classList.add("ready");
+      updateSimulator();
+    }
+
+    typeBootSequence();
+  </script>
+</body>
+</html>

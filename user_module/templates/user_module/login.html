@@ -1,0 +1,27 @@
+{% extends "user_module/base.html" %}
+
+{% block title %}Login | SubLife{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+  <div class="auth-card reveal">
+    <p class="eyebrow">System access</p>
+    <h1>Welcome Back</h1>
+    <p class="muted">Log in to track usage, billing risk, efficiency, and waste.</p>
+    <form method="post" class="stacked-form">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <label>
+        Username
+        {{ form.username }}
+      </label>
+      <label>
+        Password
+        {{ form.password }}
+      </label>
+      <button class="btn primary" type="submit">Login</button>
+    </form>
+    <p class="auth-link">New here? <a href="{% url 'signup' %}">Create an account</a></p>
+  </div>
+</section>
+{% endblock %}

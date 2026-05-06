@@ -1,0 +1,52 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}SubLife{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'user_module/app.css' %}">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="nav">
+      <a class="brand" href="{% url 'dashboard' %}">
+        <span class="brand-mark">SL</span>
+        <span>SubLife</span>
+      </a>
+      <div class="nav-links">
+        {% if request.user.is_authenticated %}
+          {% if request.user.is_superuser %}
+            <a href="{% url 'admin_dashboard' %}" style="color: var(--yellow);">Admin Module</a>
+            <a href="{% url 'system_dashboard' %}" style="color: var(--green);">System Module</a>
+          {% endif %}
+          <a href="{% url 'dashboard' %}">Dashboard</a>
+          <form action="{% url 'logout' %}" method="post" class="inline-form">
+            {% csrf_token %}
+            <button class="link-button" type="submit">Logout</button>
+          </form>
+        {% else %}
+          <a href="{% url 'login' %}">Login</a>
+          <a class="nav-pill" href="{% url 'signup' %}">Sign Up</a>
+        {% endif %}
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    {% if messages %}
+      <div class="messages container">
+        {% for message in messages %}
+          <div class="message {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{% static 'user_module/app.js' %}"></script>
+</body>
+</html>

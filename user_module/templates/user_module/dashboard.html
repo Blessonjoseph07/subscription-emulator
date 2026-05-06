@@ -1,0 +1,310 @@
+{% extends "user_module/base.html" %}
+
+{% block title %}Dashboard | SubLife{% endblock %}
+
+{% block content %}
+<div id="bootScreen" class="boot-screen is-hidden">
+  <div class="terminal">
+    <div class="terminal-top">
+      <span class="terminal-dot"></span>
+      <span class="terminal-dot"></span>
+      <span class="terminal-dot"></span>
+    </div>
+    <div class="boot-line mono" id="bootLine0"></div>
+    <div class="boot-line mono" id="bootLine1"></div>
+    <div class="boot-line mono" id="bootLine2"></div>
+    <div class="boot-line mono" id="bootLine3"></div>
+  </div>
+</div>
+
+<section class="app-hero section">
+  <div class="container hero-grid">
+    <div class="hero-copy reveal">
+      <p class="eyebrow">Subscription lifecycle simulator</p>
+      <h1 class="glitch" data-text="Stop Paying for What You Don't Use.">Stop Paying for What You Don't Use.</h1>
+      <p>Track every active day, every paused day, and every rupee wasted before the next bill lands.</p>
+    </div>
+
+    <aside class="add-card reveal">
+      <h2>Add Subscription</h2>
+      <form method="post" action="{% url 'create_subscription' %}" class="compact-form">
+        {% csrf_token %}
+        <label>Name {{ subscription_form.name }}</label>
+        <div class="form-grid">
+          <label>Category {{ subscription_form.category }}</label>
+          <label>Monthly Cost {{ subscription_form.monthly_cost }}</label>
+          <label>Billing Day {{ subscription_form.billing_day }}</label>
+          <label>Started On {{ subscription_form.started_on }}</label>
+        </div>
+        <button class="btn primary" type="submit">Start Tracking</button>
+      </form>
+    </aside>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="stats-grid reveal">
+      <article class="stat-card green">
+        <strong class="stat-value">{{ summary.total_subs }}</strong>
+        <span>Total Subs<br>This Cycle</span>
+      </article>
+      <article class="stat-card yellow">
+        <strong class="stat-value">₹{{ summary.total_spent }}</strong>
+        <span>Total Spend<br>Tracked</span>
+      </article>
+      <article class="stat-card red">
+        <strong class="stat-value">{{ summary.waste_rate }}%</strong>
+        <span>Waste Rate</span>
+      </article>
+      <article class="stat-card green">
+        <strong class="stat-value">{{ summary.efficiency }}%</strong>
+        <span>Efficiency<br>Score</span>
+      </article>
+    </div>
+
+    {% if suggestions %}
+    <div class="suggestions-bar reveal" style="margin-bottom: 2rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 500; margin-bottom: 0.75rem;">💡 Smart Suggestions</h2>
+      <div class="alerts" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+        {% for suggestion in suggestions %}
+          <article class="alert-card {% if suggestion.type == 'warning' %}yellow{% elif suggestion.type == 'cancel' %}red{% else %}green{% endif %}">
+            <span class="alert-icon">{% if suggestion.type == 'positive' %}✓{% else %}!{% endif %}</span>
+            <div>
+              <strong>{{ suggestion.title }}</strong>
+              <p>{{ suggestion.text }}</p>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="dashboard-grid">
+      <div class="panel reveal">
+        <div class="panel-heading">
+          <div>
+            <h2>Visual Timeline</h2>
+            <p>Used, paused, and wasted days in the current billing cycle.</p>
+          </div>
+        </div>
+
+        {% if snapshots %}
+          <div class="timeline-list">
+            {% for item in snapshots %}
+              <article class="timeline-row">
+                <div class="sub-name">
+                  <a href="{% url 'subscription_detail' item.subscription.pk %}">{{ item.subscription.name }}</a>
+                  <span class="tag">{{ item.subscription.get_category_display }}</span>
+                </div>
+                <div class="timeline-bar">
+                  <span class="timeline-segment active" style="--w: {{ item.segments.active }}%">
+                    <span>Used {{ item.segments.active }}%</span>
+                  </span>
+                  {% if item.segments.paused %}
+                    <span class="timeline-segment paused" style="--w: {{ item.segments.paused }}%">
+                      <span>Paused {{ item.segments.paused }}%</span>
+                    </span>
+                  {% endif %}
+                  <span class="timeline-segment wasted" style="--w: {{ item.segments.wasted }}%">
+                    <span>Wasted {{ item.segments.wasted }}%</span>
+                  </span>
+                </div>
+                <strong class="money">₹{{ item.wasted_amount }} wasted</strong>
+                <span class="badge {{ item.heat.key }}">{{ item.heat.label }}</span>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">Add your first subscription to generate lifecycle timelines.</div>
+        {% endif %}
+      </div>
+
+      <aside class="panel reveal">
+        <div class="panel-heading">
+          <div>
+            <h2>Billing Alerts</h2>
+            <p>Know when to act before a charge hits.</p>
+          </div>
+        </div>
+        <div class="alerts">
+          {% if summary.alerts %}
+            {% for alert in summary.alerts %}
+              <article class="alert-card {{ alert.level }}">
+                <span class="alert-icon">!</span>
+                <div>
+                  <strong>{{ alert.title }}</strong>
+                  <p>{{ alert.action }}</p>
+                </div>
+              </article>
+            {% endfor %}
+          {% else %}
+            <article class="alert-card green">
+              <span class="alert-icon">✓</span>
+              <div>
+                <strong>No urgent renewals</strong>
+                <p>Billing alerts appear when a subscription is within 3 days of renewal.</p>
+              </div>
+            </article>
+          {% endif %}
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container simulator-grid">
+    <div class="panel reveal" data-simulator
+      data-cost="{% if simulator_source %}{{ simulator_source.subscription.monthly_cost }}{% else %}499{% endif %}"
+      data-cycle-days="{% if simulator_source %}{{ simulator_source.cycle_days }}{% else %}30{% endif %}"
+      data-efficiency="{% if simulator_source %}{{ simulator_source.efficiency }}{% else %}62{% endif %}">
+      <div class="panel-heading">
+        <div>
+          <h2>Predict Before You Pay</h2>
+          <p>Drag the slider. Watch the math update live.</p>
+        </div>
+        {% if simulator_source %}
+          <span class="tag">{{ simulator_source.subscription.name }}</span>
+        {% else %}
+          <span class="tag">Demo</span>
+        {% endif %}
+      </div>
+      <label class="range-label">
+        Pause for <span class="mono" id="pauseDays">14</span> days
+        <input id="pauseSlider" type="range" min="0" max="30" value="14">
+      </label>
+      <div class="outputs">
+        <article>
+          <span>Estimated Savings</span>
+          <strong id="savingsValue">₹0.00</strong>
+        </article>
+        <article>
+          <span>Waste Reduced</span>
+          <strong id="reducedValue">0%</strong>
+        </article>
+        <article>
+          <span>New Efficiency</span>
+          <strong id="efficiencyValue">0%</strong>
+        </article>
+      </div>
+      <pre class="formula">Efficiency (%) = (Used Days ÷ Observed Days) × 100
+Waste (₹)      = Daily Cost × Wasted Billable Days</pre>
+    </div>
+
+    <div class="ring-panel reveal">
+      <div class="ring" id="efficiencyRing">
+        <span id="ringLabel">0%</span>
+        <small>Efficient</small>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-heading reveal">
+      <h2>Where Your Money Disappears</h2>
+      <p>Each subscription is scored with the same efficiency logic.</p>
+    </div>
+    {% if snapshots %}
+      <div class="cards-grid">
+        {% for item in snapshots %}
+          <article class="waste-card reveal {{ item.heat.key }}">
+            <div class="card-top">
+              <div>
+                <h3>{{ item.subscription.name }}</h3>
+                <p>{{ item.subscription.get_category_display }}</p>
+              </div>
+              <strong class="money">₹{{ item.subscription.monthly_cost }}/mo</strong>
+            </div>
+            <div class="mini-active">
+              <div>
+                <span>Used days</span>
+                <span class="mono">{{ item.used_days }}/{{ item.observed_days }}</span>
+              </div>
+              <span class="mini-track"><span style="width: {{ item.efficiency }}%"></span></span>
+            </div>
+            <div class="waste-line">
+              <span>Waste detected</span>
+              <strong>₹{{ item.wasted_amount }}</strong>
+            </div>
+            <div class="card-actions">
+              <form method="post" action="{% url 'log_usage' item.subscription.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ today|date:'Y-m-d' }}">
+                <input type="hidden" name="minutes_used" value="0">
+                <input type="hidden" name="note" value="Quick dashboard log">
+                <button class="btn small" type="submit">Log Today</button>
+              </form>
+              {% if item.subscription.status == "active" %}
+                <form method="post" action="{% url 'pause_subscription' item.subscription.pk %}">
+                  {% csrf_token %}
+                  <button class="btn small ghost" type="submit">Pause</button>
+                </form>
+              {% elif item.subscription.status == "paused" %}
+                <form method="post" action="{% url 'resume_subscription' item.subscription.pk %}">
+                  {% csrf_token %}
+                  <button class="btn small ghost" type="submit">Resume</button>
+                </form>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">Your waste analyzer will appear after you add subscriptions.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="container dashboard-grid">
+    <div class="panel reveal">
+      <div class="panel-heading">
+        <div>
+          <h2>Category Spend Split</h2>
+          <p>Where this cycle's subscription money is allocated.</p>
+        </div>
+      </div>
+      {% if categories %}
+        <div class="category-list">
+          {% for category in categories %}
+            <div class="category-row">
+              <span>{{ category.name }}</span>
+              <span class="category-track"><span style="width: {{ category.percent }}%"></span></span>
+              <strong>₹{{ category.amount }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">Category split needs at least one subscription.</div>
+      {% endif %}
+    </div>
+
+    <div class="panel reveal">
+      <div class="panel-heading">
+        <div>
+          <h2>Lifecycle States</h2>
+          <p>ACTIVE → PAUSED → NEAR BILLING → RENEWED → CANCELLED</p>
+        </div>
+      </div>
+      {% if snapshots %}
+        <div class="state-grid">
+          {% for item in snapshots %}
+            <a class="state-card {{ item.heat.key }}" href="{% url 'subscription_detail' item.subscription.pk %}">
+              <div>
+                <strong>{{ item.subscription.name }}</strong>
+                <span>{{ item.subscription.get_status_display }}</span>
+              </div>
+              <i></i>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">Lifecycle states will appear here.</div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

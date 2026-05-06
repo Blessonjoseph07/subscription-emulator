@@ -1,0 +1,142 @@
+{% extends "user_module/base.html" %}
+
+{% block title %}{{ subscription.name }} | SubLife{% endblock %}
+
+{% block content %}
+<section class="section detail-page">
+  <div class="container">
+    <a class="back-link" href="{% url 'dashboard' %}">← Dashboard</a>
+    <div class="detail-hero reveal">
+      <div>
+        <p class="eyebrow">{{ subscription.get_category_display }}</p>
+        <h1>{{ subscription.name }}</h1>
+        <p class="muted">Billing on day {{ subscription.billing_day }} · ₹{{ subscription.monthly_cost }}/month · {{ subscription.get_status_display }}</p>
+      </div>
+      <div class="detail-actions">
+        {% if subscription.status == "active" %}
+          <form method="post" action="{% url 'pause_subscription' subscription.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button class="btn ghost" type="submit">Pause</button>
+          </form>
+        {% elif subscription.status == "paused" %}
+          <form method="post" action="{% url 'resume_subscription' subscription.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button class="btn ghost" type="submit">Resume</button>
+          </form>
+        {% endif %}
+        <form method="post" action="{% url 'renew_subscription' subscription.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <button class="btn ghost" type="submit">Renewed</button>
+        </form>
+        <form method="post" action="{% url 'cancel_subscription' subscription.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.path }}">
+          <button class="btn danger" type="submit">Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="stats-grid reveal">
+      <article class="stat-card {{ snapshot.heat.key }}">
+        <strong class="stat-value">{{ snapshot.efficiency }}%</strong>
+        <span>Efficiency</span>
+      </article>
+      <article class="stat-card red">
+        <strong class="stat-value">₹{{ snapshot.wasted_amount }}</strong>
+        <span>Wasted This Cycle</span>
+      </article>
+      <article class="stat-card yellow">
+        <strong class="stat-value">{{ snapshot.paused_days }}</strong>
+        <span>Paused Days</span>
+      </article>
+      <article class="stat-card green">
+        <strong class="stat-value">{{ snapshot.days_until_billing }}</strong>
+        <span>Days Until Billing</span>
+      </article>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="panel reveal">
+        <div class="panel-heading">
+          <div>
+            <h2>Log Usage</h2>
+            <p>Every used day improves the efficiency score.</p>
+          </div>
+        </div>
+        <form class="compact-form" method="post" action="{% url 'log_usage' subscription.pk %}">
+          {% csrf_token %}
+          <div class="form-grid">
+            <label>Date {{ usage_form.date }}</label>
+            <label>Minutes {{ usage_form.minutes_used }}</label>
+          </div>
+          <label>Note {{ usage_form.note }}</label>
+          <button class="btn primary" type="submit">Save Usage</button>
+        </form>
+      </div>
+
+      <div class="panel reveal">
+        <div class="panel-heading">
+          <div>
+            <h2>Cycle Timeline</h2>
+            <p>{{ snapshot.cycle_start }} to {{ snapshot.cycle_end }}</p>
+          </div>
+        </div>
+        <article class="timeline-row single">
+          <div class="timeline-bar">
+            <span class="timeline-segment active" style="--w: {{ snapshot.segments.active }}%"><span>Used {{ snapshot.segments.active }}%</span></span>
+            {% if snapshot.segments.paused %}
+              <span class="timeline-segment paused" style="--w: {{ snapshot.segments.paused }}%"><span>Paused {{ snapshot.segments.paused }}%</span></span>
+            {% endif %}
+            <span class="timeline-segment wasted" style="--w: {{ snapshot.segments.wasted }}%"><span>Wasted {{ snapshot.segments.wasted }}%</span></span>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="panel reveal">
+        <div class="panel-heading">
+          <div>
+            <h2>Recent Usage</h2>
+            <p>Last 20 usage logs.</p>
+          </div>
+        </div>
+        <div class="log-list">
+          {% for log in usage_logs %}
+            <div class="log-row">
+              <strong>{{ log.date }}</strong>
+              <span>{{ log.minutes_used }} min</span>
+              <p>{{ log.note|default:"Used" }}</p>
+            </div>
+          {% empty %}
+            <div class="empty-state">No usage has been logged yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="panel reveal">
+        <div class="panel-heading">
+          <div>
+            <h2>Lifecycle Events</h2>
+            <p>Pause, resume, renewal, and cancellation history.</p>
+          </div>
+        </div>
+        <div class="log-list">
+          {% for event in events %}
+            <div class="log-row">
+              <strong>{{ event.occurred_on }}</strong>
+              <span>{{ event.get_event_type_display }}</span>
+              <p>{{ event.note }}</p>
+            </div>
+          {% empty %}
+            <div class="empty-state">No lifecycle events yet.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

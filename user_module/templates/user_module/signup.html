@@ -1,0 +1,39 @@
+{% extends "user_module/base.html" %}
+
+{% block title %}Sign Up | SubLife{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+  <div class="auth-card reveal">
+    <p class="eyebrow">Start tracking</p>
+    <h1>Create Account</h1>
+    <p class="muted">Build your subscription lifecycle dashboard in minutes.</p>
+    <form method="post" class="stacked-form">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <label>
+        Username
+        {{ form.username }}
+        {{ form.username.errors }}
+      </label>
+      <label>
+        Email
+        {{ form.email }}
+        {{ form.email.errors }}
+      </label>
+      <label>
+        Password
+        {{ form.password1 }}
+        {{ form.password1.errors }}
+      </label>
+      <label>
+        Confirm Password
+        {{ form.password2 }}
+        {{ form.password2.errors }}
+      </label>
+      <button class="btn primary" type="submit">Create Account</button>
+    </form>
+    <p class="auth-link">Already tracking? <a href="{% url 'login' %}">Log in</a></p>
+  </div>
+</section>
+{% endblock %}
