@@ -164,8 +164,18 @@
           <h2>Predict Before You Pay</h2>
           <p>Drag the slider. Watch the math update live.</p>
         </div>
-        {% if simulator_source %}
-          <span class="tag">{{ simulator_source.subscription.name }}</span>
+        {% if snapshots %}
+          <select id="simulatorSubSelect" class="form-select" style="max-width: 200px; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.875rem;">
+            {% for item in snapshots %}
+              <option value="{{ item.subscription.name }}" 
+                      data-cost="{{ item.subscription.monthly_cost }}" 
+                      data-cycle-days="{{ item.cycle_days }}" 
+                      data-efficiency="{{ item.efficiency }}"
+                      {% if item.subscription.name == simulator_source.subscription.name %}selected{% endif %}>
+                {{ item.subscription.name }}
+              </option>
+            {% endfor %}
+          </select>
         {% else %}
           <span class="tag">Demo</span>
         {% endif %}

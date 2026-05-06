@@ -24,10 +24,22 @@
     maximumFractionDigits: 2
   });
 
-  const cost = Number(panel.dataset.cost || 499);
-  const cycleDays = Math.max(Number(panel.dataset.cycleDays || 30), 1);
-  const baseEfficiency = Number(panel.dataset.efficiency || 62);
-  const dailyRate = cost / cycleDays;
+  let cost = Number(panel.dataset.cost || 499);
+  let cycleDays = Math.max(Number(panel.dataset.cycleDays || 30), 1);
+  let baseEfficiency = Number(panel.dataset.efficiency || 62);
+  let dailyRate = cost / cycleDays;
+
+  const subSelect = document.querySelector("#simulatorSubSelect");
+  if (subSelect) {
+    subSelect.addEventListener("change", (e) => {
+      const selectedOption = e.target.options[e.target.selectedIndex];
+      cost = Number(selectedOption.dataset.cost || 499);
+      cycleDays = Math.max(Number(selectedOption.dataset.cycleDays || 30), 1);
+      baseEfficiency = Number(selectedOption.dataset.efficiency || 62);
+      dailyRate = cost / cycleDays;
+      updateSimulator();
+    });
+  }
 
   const pauseDays = document.querySelector("#pauseDays");
   const savingsValue = document.querySelector("#savingsValue");
